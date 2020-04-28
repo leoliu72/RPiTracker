@@ -1,15 +1,15 @@
 import cv2
+from picamera.array import PiRGBArray
+from picamera import PiCamera
 
 class Detection():
     def __init__(self):
-        
         # Define HSV thresholds for detection
         self.lowerGreen = (29,86,6)
         self.upperGreen = (64,255,255)
-        
-    def update(self, frame):
+
+    def update(self, frame, frame_center):
         image = frame.array # read image
-                    
         blur = cv2.GaussianBlur(image.copy(), (7,7), 0)
         ##    blur = cv2.medianBlur(blur, 7)
         hsv = cv2.cvtColor(blur, cv2.COLOR_BGR2HSV)
@@ -28,15 +28,17 @@ class Detection():
         if len(contours) > 0 and max([cv2.contourArea(x) for x in contours]) > 100:
             c = max(contours, key = cv2.contourArea)
             M = cv2.moments(c) # find moments
-            
+
             cx = int(M['m10']/M['m00']) # x coordinate of center
             cy = int(M['m01']/M['m00']) # y coordinate of center
-            ((x,y), radius) = cv2.minEnclosingCircle(c)
-            center = (cx, cy)
-            
-            cv2.circle(image, (int(x),int(y)), int(radius), (0,0,255), 2) # draw circle around object
-            cv2.circle(image, center, 5, (255,0,0), 2) # draw center dot
-            cv2.imshow('Detected Ball', image)
-            
+            ((x,y), r) = cv2.minEnclosingCircle(c)
+            ball_center = (cx, cy)
+            enclosing_circle_center = (int(x), int(y))
+            enclosing_circle_radius = int(r)
+
             # return (x, y) center coordinates of the ball
-            return(center)
+            return(image, ball_center, enclosing_circle_center, enclosing_circle_radius)
+        else:
+            # If no ball is found, return center of the frame
+            print('No ball detected')
+            return (image, frame_center, None, None)
