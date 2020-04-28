@@ -1,21 +1,22 @@
 import time
 
 class PID():
-    def __init__(self, kP=1, kI=0, kD=0):
-        self.kP = kP
-        self.kI = kI
-        self.kD = kD
+    def __init__(self, servo_range, kp=1, ki=0, kd=0):
+        self.servo_range = servo_range
+        self.kp = kp
+        self.ki = ki
+        self.kd = kd
 
     def initialize(self):
         # initialize current and previous time
-        self.currTime = time.time()
-        self.prevTime = self.currTime
+        self.curr_time = time.time()
+        self.prev_time = self.curr_time
 
         # initialize PID summation terms
-        self.prevError = 0
+        self.prev_error = 0
         self.error = 0
-        self.errorInt = 0
-        self.errorDer = 0
+        self.error_int = 0
+        self.error_der = 0
 
     # Updates the PID loop
     def update(self, error, sleep = 0.2):
@@ -23,20 +24,26 @@ class PID():
         time.sleep(sleep)
 
         # Find change in time
-        self.currTime = time.time()
-        dt = self.currTime - self.prevTime
+        self.curr_time = time.time()
+        dt = self.curr_time - self.prev_time
 
         # Set proportional term to error input
         self.error = error
         # Set integral term to keep adding. Implement antiwindup later
-        self.errorInt += error * dt
+        self.error_int += error * dt
         # Set derivative term
-        self.errorDer = (error - self.prevError) / dt
+        self.error_der = (error - self.prev_error) / dt
 
         # Set prev terms for next loop
-        self.prevError = self.error
-        self.prevTime = self.currTime
+        self.prev_error = self.error
+        self.prev_time = self.curr_time
 
-        servoAngle = self.kP * self.error + self.kI * self.errorInt + self.kD * self.errorDer
+        servo_angle = self.kp * self.error + self.ki * self.error_int + self.kd * self.error_der
 
-        return servoAngle
+        # Bound movement of servo_angle
+        if servo_angle < self.servo_range[0]:
+            servo_angle = self.servo_range[0]
+        elif servo_angle > self.servo_range[1]:
+            servo_angle = self.servo_range[1]
+
+        return servo_angle
