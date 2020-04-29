@@ -42,6 +42,6 @@ class Detection():
             # return (x, y) center coordinates of the ball
             return(image, ball_center, enclosing_circle_center, enclosing_circle_radius)
         else:
-            # If no ball is found, return center of the frame
+            # If no ball is found, return center of the frame -> error goes to zero -> servo stops moving
             print('No ball detected')
             return (image, frame_center, None, None)

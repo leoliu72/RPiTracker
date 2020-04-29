@@ -7,17 +7,32 @@ from pid import PID
 import time
 import cv2
 import smbus
-print('All libraries imported')
+import sys
+import signal
 
-def set_servo(address, data):
-    bus.write_i2c_block_data(address, 0, data) # 0 = start bit
-    return -1
+# A function to kill processes
+def e_stop(sig, frame):
+    print('User requested exit. Exiting...')
+    sys.exit()
 
-if __name__ == "__main__":
+# Process for sending servo angles to Arduino
+def set_servo(pan_angle, tilt_angle):
+    # Handles keyboard interrupts to exit script
+    signal.signal(signal.SIGINT, e_stop)
+
     # Initialize I2C bus
     i2c_ch = 1
     bus = smbus.SMBus(i2c_ch)
     address = 0x04
+
+    # Send servo angles to Arduino
+    while True:
+        time.sleep(0.1)
+        bus.write_i2c_block_data(address, 0, [pan_angle.value, tilt_angle.value]) # 0 = start bit
+
+def image_processing(frame_center, obj_x, obj_y):
+    # Handles keyboard interrupts to exit script
+    signal.signal(signal.SIGINT, e_stop)
 
     # Initalize camera class
     camera = PiCamera()
@@ -31,45 +46,78 @@ if __name__ == "__main__":
 
     # Initalize Detection class
     detection = Detection()
+
+    for frame in camera.capture_continuous(raw_capture, format="bgr", use_video_port=True):
+        # perform ball detection
+        image, obj_center, enclosing_circle_center, enclosing_circle_radius = detection.update(frame, frame_center)
+        (obj_x.value, obj_y.value) = obj_center
+
+        # CV results
+        if enclosing_circle_center is not None:
+            cv2.circle(image, enclosing_circle_center, enclosing_circle_radius, (0,0,255), 2) # drawframe_center circle around object
+            cv2.circle(image, obj_center, 5, (255,0,0), 2) # center dot
+        cv2.imshow('Detected Ball', image)
+
+        key = cv2.waitKey(1) & 0xFF
+        raw_capture.truncate(0)
+
+def controls(output, servo_range, p, i ,d, center_obj, center_frame):
+    # Handles keyboard interrupts to exit script
+    signal.signal(signal.SIGINT, e_stop)
+
+    obj = PID(servo_range, p.value, i.value, d.value)
+    obj.initialize()
+
+    # Continuously run control loop
+    while True:
+        error = center_obj.value - center_frame.value
+
+        angle_update = obj.update(error)
+        output.value = obj.normalize_servo_angle(angle_update)
+
+if __name__ == "__main__":
     frame_center = (320, 240)
 
     # Servo range of motion in degrees
     pan_range = (20, 100) # 20 is left, 100 is right
     tilt_range = (0,60) # 0 is up, 60 is down
 
-    # Initlialize PID class for pan and tilt servos
-    pan = PID(pan_range)
-    pan.initialize()
-    tilt = PID(tilt_range)
-    tilt.initialize()
+    with Manager() as manager:
+        # (x,y) of the frame center
+        frame_x = manager.Value("i", frame_center[0])
+        frame_y = manager.Value("i", frame_center[1])
 
+        # (x,y) of the object center
+        obj_x = manager.Value("i", 0)
+        obj_y = manager.Value("i", 0)
 
-    try:
-        for frame in camera.capture_continuous(raw_capture, format="bgr", use_video_port=True):
-            image, ball_center, enclosing_circle_center, enclosing_circle_radius = detection.update(frame, frame_center)
-            if enclosing_circle_center is not None:
-                cv2.circle(image, enclosing_circle_center, enclosing_circle_radius, (0,0,255), 2) # drawframe_center circle around object
-                cv2.circle(image, ball_center, 5, (255,0,0), 2) # center dot
-            cv2.imshow('Detected Ball', image)
+        # servo angles to be sent to Arduino
+        pan_angle = manager.Value("i", 0)
+        tilt_angle = manager.Value("i", 0)
 
-            pan_error = ball_center[0] - frame_center[0]
-            pan_angle = pan.update(pan_error)
-            pan_angle = pan.normalize_servo_angle(pan_angle)
+        # PID constants
+        pan_p = manager.Value("f", 0.07)
+        pan_i = manager.Value("f", 0.02)
+        pan_d = manager.Value("f", 0)
 
-            tilt_error = ball_center[1] - frame_center[1]
-            tilt_angle = tilt.update(tilt_error)
-            tilt_angle = tilt.normalize_servo_angle(tilt_angle)
+        tilt_p = manager.Value("f", 0.07)
+        tilt_i = manager.Value("f", 0.02)
+        tilt_d = manager.Value("f", 0)
 
-            # Send servo angles via I2C to Arduino
-            set_servo(address, [pan_angle, tilt_angle])
+        process_detection = Process(target=image_processing, args=(frame_center, obj_x, obj_y))
+        process_panning = Process(target=controls, args=(pan_angle, pan_range, pan_p, pan_i , pan_d, obj_x, frame_x))
+        process_tilting = Process(target=controls, args=(tilt_angle, tilt_range, tilt_p, tilt_i, tilt_d, obj_y, frame_y))
+        process_set_servo = Process(target=set_servo, args=(pan_angle, tilt_angle))
 
-            key = cv2.waitKey(1) & 0xFF
-            raw_capture.truncate(0)
+        process_detection.start()
+        process_panning.start()
+        process_tilting.start()
+        process_set_servo.start()
 
-            if key == 27: # Escape key to exit
-                break
-    finally:
-        camera.close()
-        print('Closing camera')
+        process_detection.join()
+        process_panning.join()
+        process_tilting.join()
+        process_set_servo.join()
+
         cv2.destroyAllWindows()
         print('Closing script')

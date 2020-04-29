@@ -32,14 +32,12 @@ class PID():
         # Get servo angle
         pct = abs(servo_angle - error_center) / (ERROR_UPPER_BOUND - error_center)
         if servo_angle >= error_center:
-            servo_angle = int(pct * (servo_upper_bound - servo_center) + servo_center)
+            return int(pct * (servo_upper_bound - servo_center) + servo_center)
         else:
-            servo_angle = int(servo_center - pct * (servo_center - servo_lower_bound))
-
-        return servo_angle
+            return int(servo_center - pct * (servo_center - servo_lower_bound))
 
     # Updates the PID loop
-    def update(self, error, sleep = 0.2):
+    def update(self, error, sleep = 0.1):
         # Pseudo-loop time
         time.sleep(sleep)
 
