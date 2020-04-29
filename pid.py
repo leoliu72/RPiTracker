@@ -1,12 +1,13 @@
 import time
 
 class PID():
-    def __init__(self, servo_range, kp=1, ki=0, kd=0):
+    def __init__(self, servo_range, kp=0.25, ki=0, kd=0):
         self.servo_range = servo_range
         self.kp = kp
         self.ki = ki
         self.kd = kd
 
+    # Initialize various useful variables
     def initialize(self):
         # initialize current and previous time
         self.curr_time = time.time()
@@ -18,9 +19,28 @@ class PID():
         self.error_int = 0
         self.error_der = 0
 
+    def normalize_servo_angle(self, servo_angle):
+        # Define camera edges. Assumes x range = y range. Fix later
+        ERROR_LOWER_BOUND = -70 # arbitrary units
+        ERROR_UPPER_BOUND = 70
+        error_center = ERROR_LOWER_BOUND + abs(ERROR_UPPER_BOUND - ERROR_LOWER_BOUND) / 2
+
+        # Defines servo angle upper and lower bound ranges
+        servo_lower_bound, servo_upper_bound = self.servo_range
+        servo_center = (servo_upper_bound - servo_lower_bound) / 2
+
+        # Get servo angle
+        pct = abs(servo_angle - error_center) / (ERROR_UPPER_BOUND - error_center)
+        if servo_angle >= error_center:
+            servo_angle = int(pct * (servo_upper_bound - servo_center) + servo_center)
+        else:
+            servo_angle = int(servo_center - pct * (servo_center - servo_lower_bound))
+
+        return servo_angle
+
     # Updates the PID loop
     def update(self, error, sleep = 0.2):
-        # Sleep for a bit
+        # Pseudo-loop time
         time.sleep(sleep)
 
         # Find change in time
@@ -38,12 +58,6 @@ class PID():
         self.prev_error = self.error
         self.prev_time = self.curr_time
 
-        servo_angle = self.kp * self.error + self.ki * self.error_int + self.kd * self.error_der
-
-        # Bound movement of servo_angle
-        if servo_angle < self.servo_range[0]:
-            servo_angle = self.servo_range[0]
-        elif servo_angle > self.servo_range[1]:
-            servo_angle = self.servo_range[1]
+        servo_angle = int(self.kp * self.error + self.ki * self.error_int + self.kd * self.error_der)
 
         return servo_angle
