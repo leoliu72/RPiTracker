@@ -13,6 +13,7 @@ import signal
 # A function to kill processes
 def e_stop(sig, frame):
     print('User requested exit. Exiting...')
+
     sys.exit()
 
 # Process for sending servo angles to Arduino
@@ -25,10 +26,13 @@ def set_servo(pan_angle, tilt_angle):
     bus = smbus.SMBus(i2c_ch)
     address = 0x04
 
-    # Send servo angles to Arduino
     while True:
-        time.sleep(0.1)
-        bus.write_i2c_block_data(address, 0, [pan_angle.value, tilt_angle.value]) # 0 = start bit
+        # Send servo angles to Arduino
+        try:
+            time.sleep(0.08)
+            bus.write_i2c_block_data(address, 0, [pan_angle.value, tilt_angle.value]) # 0 = start bit
+        except OSError as e:
+            print(e)
 
 def image_processing(frame_center, obj_x, obj_y):
     # Handles keyboard interrupts to exit script
@@ -79,7 +83,7 @@ if __name__ == "__main__":
     frame_center = (320, 240)
 
     # Servo range of motion in degrees
-    pan_range = (20, 100) # 20 is left, 100 is right
+    pan_range = (0, 180) # 0 is left, 180 is right
     tilt_range = (0,60) # 0 is up, 60 is down
 
     with Manager() as manager:
@@ -96,9 +100,9 @@ if __name__ == "__main__":
         tilt_angle = manager.Value("i", 0)
 
         # PID constants
-        pan_p = manager.Value("f", 0.07)
-        pan_i = manager.Value("f", 0.02)
-        pan_d = manager.Value("f", 0)
+        pan_p = manager.Value("f", 0.1)
+        pan_i = manager.Value("f", 0.13)
+        pan_d = manager.Value("f", 0.005)
 
         tilt_p = manager.Value("f", 0.07)
         tilt_i = manager.Value("f", 0.02)
@@ -111,12 +115,12 @@ if __name__ == "__main__":
 
         process_detection.start()
         process_panning.start()
-        process_tilting.start()
+        # process_tilting.start()
         process_set_servo.start()
 
         process_detection.join()
         process_panning.join()
-        process_tilting.join()
+        # process_tilting.join()
         process_set_servo.join()
 
         cv2.destroyAllWindows()
