@@ -26,8 +26,8 @@ def set_servo(pan_angle, tilt_angle):
     bus = smbus.SMBus(i2c_ch)
     address = 0x04
 
+    # Send servo angles to Arduino
     while True:
-        # Send servo angles to Arduino
         try:
             time.sleep(0.08)
             bus.write_i2c_block_data(address, 0, [pan_angle.value, tilt_angle.value]) # 0 = start bit
@@ -101,8 +101,8 @@ if __name__ == "__main__":
 
         # PID constants
         pan_p = manager.Value("f", 0.1)
-        pan_i = manager.Value("f", 0.13)
-        pan_d = manager.Value("f", 0.005)
+        pan_i = manager.Value("f", 0.09)
+        pan_d = manager.Value("f", 0.0005)
 
         tilt_p = manager.Value("f", 0.07)
         tilt_i = manager.Value("f", 0.02)
