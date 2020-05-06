@@ -100,8 +100,8 @@ if __name__ == "__main__":
         tilt_angle = manager.Value("i", 0)
 
         # PID constants
-        pan_p = manager.Value("f", 0.1)
-        pan_i = manager.Value("f", 0.09)
+        pan_p = manager.Value("f", 0.115)
+        pan_i = manager.Value("f", 0.06)
         pan_d = manager.Value("f", 0.0005)
 
         tilt_p = manager.Value("f", 0.07)
@@ -114,6 +114,10 @@ if __name__ == "__main__":
         process_set_servo = Process(target=set_servo, args=(pan_angle, tilt_angle))
 
         process_detection.start()
+
+        #let camera warm up before starting PID
+        time.sleep(3)
+
         process_panning.start()
         # process_tilting.start()
         process_set_servo.start()
