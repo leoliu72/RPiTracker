@@ -1,6 +1,8 @@
 import cv2
 from picamera.array import PiRGBArray
 from picamera import PiCamera
+import time
+import numpy as np
 
 class Detection():
     def __init__(self):
@@ -9,23 +11,20 @@ class Detection():
         self.upper_green = (64,255,255)
 
     def update(self, frame, frame_center):
-        image = frame.array # read image
-        blur = cv2.GaussianBlur(image.copy(), (7,7), 0)
-        ##    blur = cv2.medianBlur(blur, 7)
+        # read image
+        image = frame.array
+
+        blur = cv2.GaussianBlur(image.copy(), (11,11), 0)
         hsv = cv2.cvtColor(blur, cv2.COLOR_BGR2HSV)
         mask = cv2.inRange(hsv, self.lower_green, self.upper_green)
-        ##    cv2.imshow('Before morpho', mask)
-
-        ##    # More filtering at the cost of speed. Removes more noise, but just HSV masking
-        ##    # seems to be sufficient for now
-        ##    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7,7))
-        ##    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-        ##    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-        ####    cv2.imshow('After morpho', mask)
+        mask = cv2.erode(mask, None, iterations=2)
+        mask = cv2.dilate(mask, None, iterations=2)
+        cv2.imshow("After dilation", mask)
 
         contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-        if len(contours) > 0 and max([cv2.contourArea(x) for x in contours]) > 100:
+        if len(contours) > 0 and max([cv2.contourArea(x) for x in contours]) > 2000:
+            # Assume largest contour is the ball
             c = max(contours, key = cv2.contourArea)
 
             # Find ball_center to send to PID
