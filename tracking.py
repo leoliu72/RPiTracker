@@ -29,7 +29,7 @@ def set_servo(pan_angle, tilt_angle):
     # Send servo angles to Arduino
     while True:
         try:
-            time.sleep(0.08)
+            time.sleep(0.1)
             bus.write_i2c_block_data(address, 0, [pan_angle.value, tilt_angle.value]) # 0 = start bit
         except OSError as e:
             print(e)
@@ -74,10 +74,11 @@ def controls(output, servo_range, p, i ,d, center_obj, center_frame):
 
     # Continuously run control loop
     while True:
+        # Calculate error
         error = center_obj.value - center_frame.value
 
-        angle_update = obj.update(error)
-        output.value = obj.normalize_servo_angle(angle_update)
+        # Calculate servo output using error
+        output.value = obj.update(error)
 
 if __name__ == "__main__":
     frame_center = (320, 240)
@@ -100,9 +101,9 @@ if __name__ == "__main__":
         tilt_angle = manager.Value("i", 0)
 
         # PID constants
-        pan_p = manager.Value("f", 0.115)
-        pan_i = manager.Value("f", 0.06)
-        pan_d = manager.Value("f", 0.0005)
+        pan_p = manager.Value("f", 0.085)
+        pan_i = manager.Value("f", 0.085)
+        pan_d = manager.Value("f", 0.00005)
 
         tilt_p = manager.Value("f", 0.07)
         tilt_i = manager.Value("f", 0.02)
