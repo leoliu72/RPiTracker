@@ -39,24 +39,34 @@ class PID():
 
     # Updates the PID loop
     def update(self, error, sleep = 0.01):
-        # Pseudo-loop time
-        time.sleep(sleep)
-
         # Find change in time
         self.curr_time = time.time()
         dt = self.curr_time - self.prev_time
+        # print("dt: ", dt)
 
-        # Set proportional term to error input
-        self.error = error
-        # Set integral term to keep adding. Implement antiwindup later
-        self.error_int += error * dt
-        # Set derivative term
-        self.error_der = (error - self.prev_error) / dt
+        if (error - self.prev_error != 0):
+            # Set proportional term to error input
+            self.error = error
+            # Set integral term to keep adding. Implement antiwindup later
+            self.error_int += error * dt
+            # Set derivative term
+            self.error_der = (error - self.prev_error) / dt
+            # print(self.error_der)
 
         # Set prev terms for next loop
         self.prev_error = self.error
         self.prev_time = self.curr_time
 
-        servo_angle = int(self.kp * self.error + self.ki * self.error_int + self.kd * self.error_der)
+        p = self.kp * self.error
+        i = self.ki * self.error_int
+        d = self.kd * self.error_der
+        servo_angle = int(p + i + d)
+        servo_angle = self.normalize_servo_angle(servo_angle)
+        # print('servo angle: ', servo_angle)
+        print('P: ', p, 'I: ', i, ' D: ', d)
+
+        time_diff = time.time() - self.curr_time
+        if time_diff < sleep:
+            time.sleep(sleep - time_diff)
 
         return servo_angle
