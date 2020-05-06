@@ -19,7 +19,7 @@ class Detection():
         mask = cv2.inRange(hsv, self.lower_green, self.upper_green)
         mask = cv2.erode(mask, None, iterations=2)
         mask = cv2.dilate(mask, None, iterations=2)
-        cv2.imshow("After dilation", mask)
+        # cv2.imshow("After dilation", mask)
 
         contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
