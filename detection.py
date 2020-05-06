@@ -3,14 +3,18 @@ from picamera.array import PiRGBArray
 from picamera import PiCamera
 import time
 import numpy as np
+import time
 
 class Detection():
     def __init__(self):
         # Define HSV thresholds for detection
         self.lower_green = (29,86,6)
         self.upper_green = (64,255,255)
+        self.curr_time = time.time()
+        self.prev_time = self.curr_time
 
     def update(self, frame, frame_center):
+        self.curr_time = time.time()
         # read image
         image = frame.array
 
@@ -37,10 +41,11 @@ class Detection():
             ((x,y), r) = cv2.minEnclosingCircle(c)
             enclosing_circle_center = (int(x), int(y))
             enclosing_circle_radius = int(r)
-
+#             print("Camera Loop time: ", time.time() - self.curr_time)
             # return (x, y) center coordinates of the ball
             return(image, ball_center, enclosing_circle_center, enclosing_circle_radius)
         else:
             # If no ball is found, return center of the frame -> error goes to zero -> servo stops moving
             print('No ball detected')
+#             print("Camera Loop time: ", time.time() - self.curr_time)
             return (image, frame_center, None, None)

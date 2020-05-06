@@ -29,9 +29,11 @@ def set_servo(pan_angle, tilt_angle):
     # Send servo angles to Arduino
     while True:
         try:
-            time.sleep(0.1)
+            curr_time = time.time()
+            time.sleep(0.25)
             bus.write_i2c_block_data(address, 0, [pan_angle.value, tilt_angle.value]) # 0 = start bit
-        except OSError as e:
+#             print("Set servo loop time: ", time.time() - curr_time)
+        except (OSError, TypeError) as e:
             print(e)
 
 def image_processing(frame_center, obj_x, obj_y):
@@ -42,7 +44,7 @@ def image_processing(frame_center, obj_x, obj_y):
     camera = PiCamera()
     camera.hflip = True # Mirror the image
     camera.resolution = (640,480)
-    camera.framerate = 32
+    # camera.framerate = 8
     raw_capture = PiRGBArray(camera, size=(640,480))
 
     # allow camera to warm up
@@ -103,7 +105,7 @@ if __name__ == "__main__":
         # PID constants
         pan_p = manager.Value("f", 0.085)
         pan_i = manager.Value("f", 0.085)
-        pan_d = manager.Value("f", 0.00005)
+        pan_d = manager.Value("f", 0.0015)
 
         tilt_p = manager.Value("f", 0.07)
         tilt_i = manager.Value("f", 0.02)
@@ -115,7 +117,6 @@ if __name__ == "__main__":
         process_set_servo = Process(target=set_servo, args=(pan_angle, tilt_angle))
 
         process_detection.start()
-
         #let camera warm up before starting PID
         time.sleep(3)
 
@@ -129,4 +130,6 @@ if __name__ == "__main__":
         process_set_servo.join()
 
         cv2.destroyAllWindows()
+        camera.close()
+        print("Camera closed")
         print('Closing script')

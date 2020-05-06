@@ -1,5 +1,6 @@
 import time
 from collections import deque
+import numpy as np
 
 class PID():
     def __init__(self, servo_range, kp=0.25, ki=0, kd=0):
@@ -44,33 +45,33 @@ class PID():
     def update(self, error, sleep = 0.1):
         time.sleep(sleep)
 
-        # If error != 0 aka camera has updated
-        if (error - self.prev_error != 0):
-            self.curr_time = time.time()
-            dt = self.curr_time - self.prev_time
-            print("PID loop time: ", dt)
+        self.curr_time = time.time()
+        dt = self.curr_time - self.prev_time
+        # print("PID loop time: ", dt)
 
-            # Proportional
-            self.error = error
+        # Proportional
+        self.error = error
 
-            # Integral. Implement antiwindup later
-            self.error_int += error * dt
+        # Integral. Implement antiwindup later
+        self.error_int += error * dt
 
-            # Derivative
-            # 5 pt moving avg to smooth error term
-            self.der_array.append((error - self.prev_error)/dt)
-            self.error_der = np.mean(self.der_array)
-            # print(self.error_der)
+        # Derivative
+        # 5 pt moving avg to smooth error term
+        self.der_array.append((error - self.prev_error)/dt)
+        self.error_der = np.mean(self.der_array)
+        # print(self.error_der)
 
-            self.prev_error = self.error
-            self.prev_time = self.curr_time
+        # Set prev terms for next loop
+        self.prev_error = self.error
+        self.prev_time = self.curr_time
 
-            p = self.kp * self.error
-            i = self.ki * self.error_int
-            d = self.kd * self.error_der
-            servo_angle = int(p + i + d)
-            servo_angle = self.normalize_servo_angle(servo_angle)
-            # print('servo angle: ', servo_angle)
-            # print('P: ', p, 'I: ', i, ' D: ', d)
+        # Calculate PID values and servo angle
+        p = self.kp * self.error
+        i = self.ki * self.error_int
+        d = self.kd * self.error_der
+        servo_angle = int(p + i + d)
+        servo_angle = self.normalize_servo_angle(servo_angle)
+        print('servo angle: ', servo_angle)
+        # print('P: ', p, 'I: ', i, ' D: ', d)
 
         return servo_angle
