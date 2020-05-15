@@ -71,7 +71,7 @@ class PID():
         d = self.kd * self.error_der
         servo_angle = int(p + i + d)
         servo_angle = self.normalize_servo_angle(servo_angle)
-        print('servo angle: ', servo_angle)
+        # print('servo angle: ', servo_angle)
         # print('P: ', p, 'I: ', i, ' D: ', d)
 
         return servo_angle

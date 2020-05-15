@@ -12,6 +12,7 @@ class Detection():
         self.upper_green = (64,255,255)
         self.curr_time = time.time()
         self.prev_time = self.curr_time
+        self.prev_pos = (0,0)
 
     def update(self, frame, frame_center):
         self.curr_time = time.time()
@@ -41,11 +42,14 @@ class Detection():
             ((x,y), r) = cv2.minEnclosingCircle(c)
             enclosing_circle_center = (int(x), int(y))
             enclosing_circle_radius = int(r)
+
+            # Sets previous position in case ball is not found the next loop
+            self.prev_pos = ball_center
 #             print("Camera Loop time: ", time.time() - self.curr_time)
             # return (x, y) center coordinates of the ball
             return(image, ball_center, enclosing_circle_center, enclosing_circle_radius)
         else:
-            # If no ball is found, return center of the frame -> error goes to zero -> servo stops moving
+            # If no ball is found, return previous position
             print('No ball detected')
 #             print("Camera Loop time: ", time.time() - self.curr_time)
-            return (image, frame_center, None, None)
+            return (image, self.prev_pos, None, None)

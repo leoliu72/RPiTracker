@@ -30,7 +30,8 @@ def set_servo(pan_angle, tilt_angle):
     while True:
         try:
             curr_time = time.time()
-            time.sleep(0.25)
+            time.sleep(0.3)
+            print("Pan Angle: ", pan_angle.value)
             bus.write_i2c_block_data(address, 0, [pan_angle.value, tilt_angle.value]) # 0 = start bit
 #             print("Set servo loop time: ", time.time() - curr_time)
         except (OSError, TypeError) as e:
@@ -86,7 +87,7 @@ if __name__ == "__main__":
     frame_center = (320, 240)
 
     # Servo range of motion in degrees
-    pan_range = (0, 180) # 0 is left, 180 is right
+    pan_range = (10, 170) # 0 is left, 180 is right
     tilt_range = (0,60) # 0 is up, 60 is down
 
     with Manager() as manager:
@@ -103,9 +104,9 @@ if __name__ == "__main__":
         tilt_angle = manager.Value("i", 0)
 
         # PID constants
-        pan_p = manager.Value("f", 0.085)
+        pan_p = manager.Value("f", 0.09)
         pan_i = manager.Value("f", 0.085)
-        pan_d = manager.Value("f", 0.0015)
+        pan_d = manager.Value("f", 0.003)
 
         tilt_p = manager.Value("f", 0.07)
         tilt_i = manager.Value("f", 0.02)
