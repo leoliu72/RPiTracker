@@ -6,9 +6,15 @@ from detection import Detection
 from pid import PID
 import time
 import cv2
-import smbus
 import sys
 import signal
+
+# servos
+from adafruit_servokit import ServoKit
+kit = ServoKit(channels=16)
+from board import SCL, SDA
+import busio
+from adafruit_pca9685 import PCA9685
 
 # A function to kill processes
 def e_stop(sig, frame):
@@ -22,18 +28,19 @@ def set_servo(pan_angle, tilt_angle):
     signal.signal(signal.SIGINT, e_stop)
 
     # Initialize I2C bus
-    i2c_ch = 1
-    bus = smbus.SMBus(i2c_ch)
-    address = 0x04
+    i2c = busio.I2C(SCL, SDA)
+    hat = PCA9685(i2c)
+    hat.frequency = 50
+    servo_sleep = 0.025
 
-    # Send servo angles to Arduino
+    # Define servo objects
+    pan = kit.servo[0]
+    tilt = kit.servo[1]
+
     while True:
         try:
-            curr_time = time.time()
-            time.sleep(0.3)
-            print("Pan Angle: ", pan_angle.value)
-            bus.write_i2c_block_data(address, 0, [pan_angle.value, tilt_angle.value]) # 0 = start bit
-#             print("Set servo loop time: ", time.time() - curr_time)
+            # Set servo angles
+            pan.angle = pan_angle.value
         except (OSError, TypeError) as e:
             print(e)
 
@@ -62,7 +69,7 @@ def image_processing(frame_center, obj_x, obj_y):
         # CV results
         if enclosing_circle_center is not None:
             cv2.circle(image, enclosing_circle_center, enclosing_circle_radius, (0,0,255), 2) # drawframe_center circle around object
-            cv2.circle(image, obj_center, 5, (255,0,0), 2) # center dot
+            cv2.circle(image, obj_center, 5, (255,0,0), 1) # center dot
         cv2.imshow('Detected Ball', image)
 
         key = cv2.waitKey(1) & 0xFF
@@ -104,9 +111,9 @@ if __name__ == "__main__":
         tilt_angle = manager.Value("i", 0)
 
         # PID constants
-        pan_p = manager.Value("f", 0.09)
+        pan_p = manager.Value("f", 0.0925)
         pan_i = manager.Value("f", 0.085)
-        pan_d = manager.Value("f", 0.003)
+        pan_d = manager.Value("f", 0.004)
 
         tilt_p = manager.Value("f", 0.07)
         tilt_i = manager.Value("f", 0.02)
