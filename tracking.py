@@ -8,17 +8,26 @@ import time
 import cv2
 import sys
 import signal
-
-# servos
 from adafruit_servokit import ServoKit
 kit = ServoKit(channels=16)
 from board import SCL, SDA
 import busio
 from adafruit_pca9685 import PCA9685
 
+# Initialize I2C bus
+i2c = busio.I2C(SCL, SDA)
+hat = PCA9685(i2c)
+hat.frequency = 50
+
 # A function to kill processes
 def e_stop(sig, frame):
-    print('User requested exit. Exiting...')
+    print('User requested exit.')
+
+    # Close servo and camera processes
+    hat.deinit()
+    # camera.close()
+    cv2.destroyAllWindows()
+    print('All processes shut down. Exiting...')
 
     sys.exit()
 
@@ -27,19 +36,12 @@ def set_servo(pan_angle, tilt_angle):
     # Handles keyboard interrupts to exit script
     signal.signal(signal.SIGINT, e_stop)
 
-    # Initialize I2C bus
-    i2c = busio.I2C(SCL, SDA)
-    hat = PCA9685(i2c)
-    hat.frequency = 50
-    servo_sleep = 0.025
-
     # Define servo objects
     pan = kit.servo[0]
     tilt = kit.servo[1]
 
     while True:
         try:
-            # Set servo angles
             pan.angle = pan_angle.value
         except (OSError, TypeError) as e:
             print(e)
@@ -48,11 +50,10 @@ def image_processing(frame_center, obj_x, obj_y):
     # Handles keyboard interrupts to exit script
     signal.signal(signal.SIGINT, e_stop)
 
-    # Initalize camera class
+    # Initialize camera object
     camera = PiCamera()
     camera.hflip = True # Mirror the image
     camera.resolution = (640,480)
-    # camera.framerate = 8
     raw_capture = PiRGBArray(camera, size=(640,480))
 
     # allow camera to warm up
@@ -111,9 +112,9 @@ if __name__ == "__main__":
         tilt_angle = manager.Value("i", 0)
 
         # PID constants
-        pan_p = manager.Value("f", 0.0925)
-        pan_i = manager.Value("f", 0.085)
-        pan_d = manager.Value("f", 0.004)
+        pan_p = manager.Value("f", 0.095)
+        pan_i = manager.Value("f", 0.08)
+        pan_d = manager.Value("f", 0.002)
 
         tilt_p = manager.Value("f", 0.07)
         tilt_i = manager.Value("f", 0.02)
@@ -137,7 +138,4 @@ if __name__ == "__main__":
         # process_tilting.join()
         process_set_servo.join()
 
-        cv2.destroyAllWindows()
         camera.close()
-        print("Camera closed")
-        print('Closing script')
