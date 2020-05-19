@@ -9,7 +9,7 @@ class PID():
         self.ki = ki
         self.kd = kd
         # Array for moving avg filter on derivative terms
-        self.der_array = deque([],5)
+        self.der_array = deque([],1)
 
     # Initialize various useful variables
     def initialize(self):
@@ -72,6 +72,6 @@ class PID():
         servo_angle = int(p + i + d)
         servo_angle = self.normalize_servo_angle(servo_angle)
         # print('servo angle: ', servo_angle)
-        # print('P: ', p, 'I: ', i, ' D: ', d)
+        print('P: ', p, 'I: ', i, ' D: ', d)
 
         return servo_angle
