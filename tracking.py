@@ -43,6 +43,7 @@ def set_servo(pan_angle, tilt_angle):
     while True:
         try:
             pan.angle = pan_angle.value
+            tilt.angle = tilt_angle.value
         except (OSError, TypeError) as e:
             print(e)
 
@@ -107,7 +108,7 @@ if __name__ == "__main__":
         obj_x = manager.Value("i", 0)
         obj_y = manager.Value("i", 0)
 
-        # servo angles to be sent to Arduino
+        # servo angles
         pan_angle = manager.Value("i", 0)
         tilt_angle = manager.Value("i", 0)
 
@@ -116,9 +117,9 @@ if __name__ == "__main__":
         pan_i = manager.Value("f", 0.08)
         pan_d = manager.Value("f", 0.002)
 
-        tilt_p = manager.Value("f", 0.07)
-        tilt_i = manager.Value("f", 0.02)
-        tilt_d = manager.Value("f", 0)
+        tilt_p = manager.Value("f", 0.095)
+        tilt_i = manager.Value("f", 0.07)
+        tilt_d = manager.Value("f", 0.00125)
 
         process_detection = Process(target=image_processing, args=(frame_center, obj_x, obj_y))
         process_panning = Process(target=controls, args=(pan_angle, pan_range, pan_p, pan_i , pan_d, obj_x, frame_x))
@@ -130,12 +131,12 @@ if __name__ == "__main__":
         time.sleep(3)
 
         process_panning.start()
-        # process_tilting.start()
+        process_tilting.start()
         process_set_servo.start()
 
         process_detection.join()
         process_panning.join()
-        # process_tilting.join()
+        process_tilting.join()
         process_set_servo.join()
 
         camera.close()
