@@ -16,6 +16,7 @@ class PID():
         # initialize current and previous time
         self.curr_time = time.time()
         self.prev_time = self.curr_time
+        self.prev_servo_angle = 0
 
         # initialize PID summation terms
         self.prev_error = 0
@@ -41,8 +42,21 @@ class PID():
 
         return servo_angle
 
+    def speed_limit(self, servo_angle):
+        """ Sets the "speed limit" of servos to account for mechanical inertia"""
+        limit = 10
+        if abs(servo_angle - self.prev_servo_angle) >= limit:
+            if servo_angle > self.prev_servo_angle:
+                servo_angle = self.prev_servo_angle + limit
+            else:
+                servo_angle = self.prev_servo_angle - limit
+
+        self.prev_servo_angle = servo_angle
+
+        return servo_angle
+
     # Updates the PID loop
-    def update(self, error, sleep = 0.1):
+    def update(self, error, sleep = 0.2):
         time.sleep(sleep)
 
         self.curr_time = time.time()
@@ -61,17 +75,18 @@ class PID():
         self.error_der = np.mean(self.der_array)
         # print(self.error_der)
 
-        # Set prev terms for next loop
-        self.prev_error = self.error
-        self.prev_time = self.curr_time
-
         # Calculate PID values and servo angle
         p = self.kp * self.error
         i = self.ki * self.error_int
         d = self.kd * self.error_der
         servo_angle = int(p + i + d)
         servo_angle = self.normalize_servo_angle(servo_angle)
+        servo_angle = self.speed_limit(servo_angle)
         # print('servo angle: ', servo_angle)
         # print('P: ', p, 'I: ', i, ' D: ', d)
+
+         # Set prev terms for next loop
+        self.prev_error = self.error
+        self.prev_time = self.curr_time
 
         return servo_angle
