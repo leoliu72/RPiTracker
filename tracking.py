@@ -44,6 +44,8 @@ def set_servo(pan_angle, tilt_angle):
         try:
             pan.angle = pan_angle.value
             tilt.angle = tilt_angle.value
+            # print('Pan: ', pan_angle.value)
+            # print('Tilt: ', tilt_angle.value)
         except (OSError, TypeError) as e:
             print(e)
 
@@ -65,32 +67,31 @@ def image_processing(frame_center, obj_x, obj_y):
 
     for frame in camera.capture_continuous(raw_capture, format="bgr", use_video_port=True):
         # perform ball detection
-        image, obj_center, enclosing_circle_center, enclosing_circle_radius = detection.update(frame, frame_center)
+        image, obj_center = detection.update(frame, frame_center)
         (obj_x.value, obj_y.value) = obj_center
 
         # CV results
-        if enclosing_circle_center is not None:
-            cv2.circle(image, enclosing_circle_center, enclosing_circle_radius, (0,0,255), 2) # drawframe_center circle around object
-            cv2.circle(image, obj_center, 5, (255,0,0), 1) # center dot
+        if obj_center is not None:
+            cv2.circle(image, obj_center, 3, (0,0,255), 3) # center dot
         cv2.imshow('Detected Ball', image)
 
         key = cv2.waitKey(1) & 0xFF
         raw_capture.truncate(0)
 
-def controls(output, servo_range, p, i ,d, center_obj, center_frame):
+def controls(output, servo_range, p, i ,d, obj_center, frame_center):
     # Handles keyboard interrupts to exit script
     signal.signal(signal.SIGINT, e_stop)
 
-    obj = PID(servo_range, p.value, i.value, d.value)
-    obj.initialize()
+    pid = PID(servo_range, p.value, i.value, d.value)
+    pid.initialize()
 
     # Continuously run control loop
     while True:
         # Calculate error
-        error = center_obj.value - center_frame.value
+        error = obj_center.value - frame_center
 
         # Calculate servo output using error
-        output.value = obj.update(error)
+        output.value = pid.update(error)
 
 if __name__ == "__main__":
     frame_center = (320, 240)
@@ -100,10 +101,6 @@ if __name__ == "__main__":
     tilt_range = (0,60) # 0 is up, 60 is down
 
     with Manager() as manager:
-        # (x,y) of the frame center
-        frame_x = manager.Value("i", frame_center[0])
-        frame_y = manager.Value("i", frame_center[1])
-
         # (x,y) of the object center
         obj_x = manager.Value("i", 0)
         obj_y = manager.Value("i", 0)
@@ -113,17 +110,17 @@ if __name__ == "__main__":
         tilt_angle = manager.Value("i", 0)
 
         # PID constants
-        pan_p = manager.Value("f", 0.095)
-        pan_i = manager.Value("f", 0.08)
-        pan_d = manager.Value("f", 0.002)
+        pan_p = manager.Value("f", 0.105)
+        pan_i = manager.Value("f", 0.95)
+        pan_d = manager.Value("f", 0.003)
 
         tilt_p = manager.Value("f", 0.095)
         tilt_i = manager.Value("f", 0.07)
         tilt_d = manager.Value("f", 0.00125)
 
         process_detection = Process(target=image_processing, args=(frame_center, obj_x, obj_y))
-        process_panning = Process(target=controls, args=(pan_angle, pan_range, pan_p, pan_i , pan_d, obj_x, frame_x))
-        process_tilting = Process(target=controls, args=(tilt_angle, tilt_range, tilt_p, tilt_i, tilt_d, obj_y, frame_y))
+        process_panning = Process(target=controls, args=(pan_angle, pan_range, pan_p, pan_i , pan_d, obj_x, frame_center[0]))
+        process_tilting = Process(target=controls, args=(tilt_angle, tilt_range, tilt_p, tilt_i, tilt_d, obj_y, frame_center[1]))
         process_set_servo = Process(target=set_servo, args=(pan_angle, tilt_angle))
 
         process_detection.start()
@@ -131,12 +128,12 @@ if __name__ == "__main__":
         time.sleep(3)
 
         process_panning.start()
-        process_tilting.start()
+        # process_tilting.start()
         process_set_servo.start()
 
         process_detection.join()
         process_panning.join()
-        process_tilting.join()
+        # process_tilting.join()
         process_set_servo.join()
 
         camera.close()
