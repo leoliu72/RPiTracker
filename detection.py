@@ -12,7 +12,7 @@ class Detection():
         self.upper_green = (64,255,255)
         self.curr_time = time.time()
         self.prev_time = self.curr_time
-        self.prev_pos = (0,0)
+        self.prev_center = (320,240)
 
     def update(self, frame, frame_center):
         self.curr_time = time.time()
@@ -27,35 +27,54 @@ class Detection():
         mask = cv2.dilate(mask, None, iterations=2)
         # cv2.imshow("After dilation", mask)
 
-        contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        circles = cv2.HoughCircles(mask, cv2.HOUGH_GRADIENT,1,minDist=400,
+            param1=15,param2=10,minRadius=15,maxRadius=100)
 
-        if len(contours) > 0 and max([cv2.contourArea(x) for x in contours]) > 2000:
-            # Find contours of area greater than a thresholds
-            cnts = [x for x in contours if cv2.contourArea(x) > 2000]
+        if circles is not None:
+            # find center and radius of circles
+            centers = [(int(i[0]),int(i[1])) for i in circles[0,:]]
+            radii = [int(i[2]) for i in circles[0,:]]
 
-            # Sort contours by area. Truncate list down to 3 largest contours
-            cnts.sort(key = cv2.contourArea, reverse = True)
-            if len(cnts) > 3:
-                cnts = cnts[0:2]
-
-            # Find moments and centers of the contours
-            moments = [cv2.moments(x) for x in cnts]
-            cx = [int(moments[i]['m10'] / moments[i]['m00']) for i in range(len(moments))]
-            cy = [int(moments[i]['m01'] / moments[i]['m00']) for i in range(len(moments))]
-
-            # Find the contour that is the closest to the previous detected object, call that the new detected object
-            distance = [(cx[i] - self.prev_pos[0]) ** 2 + (cy[i] - self.prev_pos[1]) ** 2 for i in range(len(moments))]
+            # calculate distance from previous center for each circle. Closest circle is the ball
+            distance = [(centers[i][0] - self.prev_center[0]) ** 2 + (centers[i][1] - self.prev_center[1]) ** 2
+                for i in range(len(circles))]
             ind = distance.index(min(distance))
-            ball_center = (cx[ind], cy[ind])
+            ball_center = (centers[ind])
+
+            # draw center dot
+            # cv2.circle(image, ball_center, 3, (0,0,255), 3)
+            # cv2.imshow("circles", image)
 
             # Sets previous position
-            self.prev_pos = ball_center
+            self.prev_center = ball_center
             # print("Camera Loop time: ", time.time() - self.curr_time)
 
             # return (x, y) center coordinates of the ball
+            return(image, ball_center)
             return(image, ball_center)
         else:
             # If no ball is found, return previous position
             print('No ball detected')
 #             print("Camera Loop time: ", time.time() - self.curr_time)
-            return (image, self.prev_pos)
+            return (image, self.prev_center)
+
+# if __name__ == "__main__":
+#     frame_center = (320, 240)
+
+#     camera = PiCamera()
+#     camera.hflip = True
+#     camera.resolution = (640,480)
+#     raw_capture = PiRGBArray(camera, size=(640,480))
+
+#     time.sleep(2)
+#     detection = Detection()
+
+#     for frame in camera.capture_continuous(raw_capture, format="bgr", use_video_port=True):
+#         image, obj_center = detection.update(frame, frame_center)
+
+#         key = cv2.waitKey(1) & 0xFF
+#         raw_capture.truncate(0)
+
+#         if key == 27:
+#             camera.close()
+#             cv2.destroyAllWindows()
