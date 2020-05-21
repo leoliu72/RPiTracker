@@ -73,6 +73,7 @@ def image_processing(frame_center, obj_x, obj_y):
         # CV results
         if obj_center is not None:
             cv2.circle(image, obj_center, 3, (0,0,255), 3) # center dot
+            cv2.rectangle(image, (260,180), (380,300), (255,0,0),1)
         cv2.imshow('Detected Ball', image)
 
         key = cv2.waitKey(1) & 0xFF
@@ -94,10 +95,10 @@ def controls(output, servo_range, p, i ,d, obj_center, frame_center):
         output.value = pid.update(error)
 
 if __name__ == "__main__":
-    frame_center = (320, 240)
+    frame_center = (320,240)
 
     # Servo range of motion in degrees
-    pan_range = (10, 170) # 0 is left, 180 is right
+    pan_range = (10,170) # 0 is left, 180 is right
     tilt_range = (0,60) # 0 is up, 60 is down
 
     with Manager() as manager:
@@ -111,12 +112,12 @@ if __name__ == "__main__":
 
         # PID constants
         pan_p = manager.Value("f", 0.105)
-        pan_i = manager.Value("f", 0.95)
-        pan_d = manager.Value("f", 0.003)
+        pan_i = manager.Value("f", 0.095)
+        pan_d = manager.Value("f", 0.004)
 
         tilt_p = manager.Value("f", 0.095)
-        tilt_i = manager.Value("f", 0.07)
-        tilt_d = manager.Value("f", 0.00125)
+        tilt_i = manager.Value("f", 0.083)
+        tilt_d = manager.Value("f", 0.002)
 
         process_detection = Process(target=image_processing, args=(frame_center, obj_x, obj_y))
         process_panning = Process(target=controls, args=(pan_angle, pan_range, pan_p, pan_i , pan_d, obj_x, frame_center[0]))
@@ -128,12 +129,12 @@ if __name__ == "__main__":
         time.sleep(3)
 
         process_panning.start()
-        # process_tilting.start()
+        process_tilting.start()
         process_set_servo.start()
 
         process_detection.join()
         process_panning.join()
-        # process_tilting.join()
+        process_tilting.join()
         process_set_servo.join()
 
         camera.close()
