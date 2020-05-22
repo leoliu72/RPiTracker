@@ -8,8 +8,8 @@ class PID():
         self.kp = kp
         self.ki = ki
         self.kd = kd
-        # Array for moving avg filter on derivative terms
-        self.der_array = deque([],1)
+        # Array for moving avg filter on error bound
+        self.error_array = deque([],5)
 
     # Initialize various useful variables
     def initialize(self):
@@ -32,11 +32,11 @@ class PID():
         # Get servo angle
         pct = abs(servo_angle - servo_center) / (servo_upper_bound - servo_center)
         if servo_angle >= servo_center:
-            servo_angle = int(pct * (servo_upper_bound - servo_center) + servo_center)
+            servo_angle = int(np.around(pct * (servo_upper_bound - servo_center) + servo_center))
             if servo_angle > servo_upper_bound:
                 servo_angle = servo_upper_bound
         else:
-            servo_angle = int(servo_center - pct * (servo_center - servo_lower_bound))
+            servo_angle = int(np.around(servo_center - pct * (servo_center - servo_lower_bound)))
             if servo_angle < servo_lower_bound:
                 servo_angle = servo_lower_bound
 
@@ -51,12 +51,10 @@ class PID():
             else:
                 servo_angle = self.prev_servo_angle - limit
 
-        self.prev_servo_angle = servo_angle
-
         return servo_angle
 
     # Updates the PID loop
-    def update(self, error, sleep = 0.2):
+    def update(self, error, error_bound, sleep = 0.2):
         time.sleep(sleep)
 
         self.curr_time = time.time()
@@ -76,16 +74,23 @@ class PID():
         # print(self.error_der)
 
         # Calculate PID values and servo angle
-        p = self.kp * self.error
-        i = self.ki * self.error_int
-        d = self.kd * self.error_der
-        servo_angle = int(p + i + d)
-        servo_angle = self.normalize_servo_angle(servo_angle)
-        servo_angle = self.speed_limit(servo_angle)
-        # print('servo angle: ', servo_angle)
-        # print('P: ', p, 'I: ', i, ' D: ', d)
+        if abs(np.mean(self.error_array)) <= error_bound:
+            # If the error is within some distance of the center of the frame, don't move
+            servo_angle = self.prev_servo_angle
+        else:
+            # Otherwise, do PID
+            p = self.kp * self.error
+            i = self.ki * self.error_int
+            d = self.kd * self.error_der
+            servo_angle = p + i + d
+            servo_angle = self.normalize_servo_angle(servo_angle)
+            servo_angle = self.speed_limit(servo_angle)
+            # print('P: ', p, 'I: ', i, ' D: ', d)
 
          # Set prev terms for next loop
+        # print("servo angle: ", servo_angle)
+        self.prev_servo_angle = servo_angle
+        self.error_array.append(self.error)
         self.prev_error = self.error
         self.prev_time = self.curr_time
 
