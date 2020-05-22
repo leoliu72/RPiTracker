@@ -72,14 +72,15 @@ def image_processing(frame_center, obj_x, obj_y):
 
         # CV results
         if obj_center is not None:
-            cv2.circle(image, obj_center, 3, (0,0,255), 3) # center dot
-            cv2.rectangle(image, (260,180), (380,300), (255,0,0),1)
+            cv2.circle(image, obj_center, 2, (0,0,255), 3) # center dot
+            cv2.rectangle(image, (frame_center[0]-pan_error_bound.value, frame_center[1]-tilt_error_bound.value),
+            (frame_center[0]+pan_error_bound.value, frame_center[1]+tilt_error_bound.value), (255,0,0),1)
         cv2.imshow('Detected Ball', image)
 
         key = cv2.waitKey(1) & 0xFF
         raw_capture.truncate(0)
 
-def controls(output, servo_range, p, i ,d, obj_center, frame_center):
+def controls(output, servo_range, p, i ,d, obj_center, frame_center, error_bound):
     # Handles keyboard interrupts to exit script
     signal.signal(signal.SIGINT, e_stop)
 
@@ -92,7 +93,7 @@ def controls(output, servo_range, p, i ,d, obj_center, frame_center):
         error = obj_center.value - frame_center
 
         # Calculate servo output using error
-        output.value = pid.update(error)
+        output.value = pid.update(error, error_bound.value)
 
 if __name__ == "__main__":
     frame_center = (320,240)
@@ -110,6 +111,10 @@ if __name__ == "__main__":
         pan_angle = manager.Value("i", 0)
         tilt_angle = manager.Value("i", 0)
 
+        # Error bounds for "dead zone"
+        pan_error_bound = manager.Value("i", 40)
+        tilt_error_bound = manager.Value("i", 40)
+
         # PID constants
         pan_p = manager.Value("f", 0.105)
         pan_i = manager.Value("f", 0.095)
@@ -117,11 +122,11 @@ if __name__ == "__main__":
 
         tilt_p = manager.Value("f", 0.095)
         tilt_i = manager.Value("f", 0.083)
-        tilt_d = manager.Value("f", 0.002)
+        tilt_d = manager.Value("f", 0.004)
 
         process_detection = Process(target=image_processing, args=(frame_center, obj_x, obj_y))
-        process_panning = Process(target=controls, args=(pan_angle, pan_range, pan_p, pan_i , pan_d, obj_x, frame_center[0]))
-        process_tilting = Process(target=controls, args=(tilt_angle, tilt_range, tilt_p, tilt_i, tilt_d, obj_y, frame_center[1]))
+        process_panning = Process(target=controls, args=(pan_angle, pan_range, pan_p, pan_i , pan_d, obj_x, frame_center[0], pan_error_bound))
+        process_tilting = Process(target=controls, args=(tilt_angle, tilt_range, tilt_p, tilt_i, tilt_d, obj_y, frame_center[1], tilt_error_bound))
         process_set_servo = Process(target=set_servo, args=(pan_angle, tilt_angle))
 
         process_detection.start()
