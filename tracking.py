@@ -58,7 +58,7 @@ if __name__ == "__main__":
     for frame in camera.capture_continuous(raw_capture, format="bgr", use_video_port=True):
         # perform ball detection
         image = frame.array
-        image, obj_center = detection.update(image, frame_center)
+        image, obj_center = detection.update(image)
         (obj_x, obj_y) = obj_center
         cv2.imshow('Detected Ball', image)
 

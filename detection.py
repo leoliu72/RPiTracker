@@ -8,7 +8,7 @@ class Detection():
         self.upper_green = (64,255,255)
         self.prev_center = (320,240)
 
-    def update(self, image, frame_center):
+    def update(self, image):
         # Filter tennis ball by color
         blur = cv2.GaussianBlur(image.copy(), (11,11), 0)
         hsv = cv2.cvtColor(blur, cv2.COLOR_BGR2HSV)
