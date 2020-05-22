@@ -43,8 +43,8 @@ class PID():
         return servo_angle
 
     def speed_limit(self, servo_angle):
-        """ Sets the "speed limit" of servos to account for mechanical inertia"""
-        limit = 10
+        """ Sets the slew rate of servos to account for mechanical constraints"""
+        limit = 6
         if abs(servo_angle - self.prev_servo_angle) >= limit:
             if servo_angle > self.prev_servo_angle:
                 servo_angle = self.prev_servo_angle + limit
@@ -55,11 +55,10 @@ class PID():
 
     # Updates the PID loop
     def update(self, error, error_bound, sleep = 0.2):
-        time.sleep(sleep)
+        # time.sleep(sleep)
 
         self.curr_time = time.time()
         dt = self.curr_time - self.prev_time
-        # print("PID loop time: ", dt)
 
         # Proportional
         self.error = error
@@ -68,10 +67,7 @@ class PID():
         self.error_int += error * dt
 
         # Derivative
-        # 5 pt moving avg to smooth error term
-        self.der_array.append((error - self.prev_error)/dt)
-        self.error_der = np.mean(self.der_array)
-        # print(self.error_der)
+        self.error_der = (error - self.prev_error) / dt
 
         # Calculate PID values and servo angle
         if abs(np.mean(self.error_array)) <= error_bound:

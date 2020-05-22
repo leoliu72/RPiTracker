@@ -19,39 +19,21 @@ i2c = busio.I2C(SCL, SDA)
 hat = PCA9685(i2c)
 hat.frequency = 50
 
-# A function to kill processes
-def e_stop(sig, frame):
-    print('User requested exit.')
+def controls(pid_object, obj_center, frame_center, error_bound):
 
-    # Close servo and camera processes
-    hat.deinit()
-    # camera.close()
-    cv2.destroyAllWindows()
-    print('All processes shut down. Exiting...')
+    # calculate error and perform pid
+    error = obj_center - frame_center
+    servo_angle = pid_object.update(error, error_bound)
 
-    sys.exit()
+    return servo_angle
 
-# Process for sending servo angles to Arduino
-def set_servo(pan_angle, tilt_angle):
-    # Handles keyboard interrupts to exit script
-    signal.signal(signal.SIGINT, e_stop)
+if __name__ == "__main__":
+    frame_center = (320,240)
 
-    # Define servo objects
-    pan = kit.servo[0]
-    tilt = kit.servo[1]
-
-    while True:
-        try:
-            pan.angle = pan_angle.value
-            tilt.angle = tilt_angle.value
-            # print('Pan: ', pan_angle.value)
-            # print('Tilt: ', tilt_angle.value)
-        except (OSError, TypeError) as e:
-            print(e)
-
-def image_processing(frame_center, obj_x, obj_y):
-    # Handles keyboard interrupts to exit script
-    signal.signal(signal.SIGINT, e_stop)
+    # Servo range of motion in degrees
+    pan_range = (10,170) # 0 is left, 180 is right
+    tilt_range = (0,60) # 0 is up, 60 is down
+    error_bound = (40,40)
 
     # Initialize camera object
     camera = PiCamera()
@@ -65,81 +47,52 @@ def image_processing(frame_center, obj_x, obj_y):
     # Initalize Detection class
     detection = Detection()
 
+    # Initialize PID class
+    pid_pan = PID(pan_range, 0.17, 0.105, 0.004)
+    pid_pan.initialize()
+    pid_tilt = PID(tilt_range, 0.17, 0.12 , 0.004)
+    pid_tilt.initialize()
+
+    # Define servo objects
+    pan = kit.servo[0]
+    pan.angle = 90
+    tilt = kit.servo[1]
+    tilt.angle = 0
+
     for frame in camera.capture_continuous(raw_capture, format="bgr", use_video_port=True):
+        curr_time = time.time()
+
+        # print(len(frame))
         # perform ball detection
-        image, obj_center = detection.update(frame, frame_center)
-        (obj_x.value, obj_y.value) = obj_center
+        image = frame.array
+        image, obj_center = detection.update(image, frame_center)
+        (obj_x, obj_y) = obj_center
 
         # CV results
         if obj_center is not None:
             cv2.circle(image, obj_center, 2, (0,0,255), 3) # center dot
-            cv2.rectangle(image, (frame_center[0]-pan_error_bound.value, frame_center[1]-tilt_error_bound.value),
-            (frame_center[0]+pan_error_bound.value, frame_center[1]+tilt_error_bound.value), (255,0,0),1)
+            cv2.rectangle(image, (frame_center[0]-error_bound[0], frame_center[1]-error_bound[1]),
+            (frame_center[0]+error_bound[0], frame_center[1]+error_bound[1]), (255,0,0),1)
         cv2.imshow('Detected Ball', image)
+
+        # PID
+        pan_angle = controls(pid_pan, obj_x, frame_center[0], error_bound[0])
+        tilt_angle = controls(pid_tilt, obj_y, frame_center[1], error_bound[1])
+
+        # Set servos
+        pan.angle = pan_angle
+#         print("pan angle: ", pan_angle)
+        tilt.angle = tilt_angle
+        # print("tilt angle: ", tilt_angle)
 
         key = cv2.waitKey(1) & 0xFF
         raw_capture.truncate(0)
+        if key == 27:
+            break
+        # print("loop time: ", time.time() - curr_time)
 
-def controls(output, servo_range, p, i ,d, obj_center, frame_center, error_bound):
-    # Handles keyboard interrupts to exit script
-    signal.signal(signal.SIGINT, e_stop)
-
-    pid = PID(servo_range, p.value, i.value, d.value)
-    pid.initialize()
-
-    # Continuously run control loop
-    while True:
-        # Calculate error
-        error = obj_center.value - frame_center
-
-        # Calculate servo output using error
-        output.value = pid.update(error, error_bound.value)
-
-if __name__ == "__main__":
-    frame_center = (320,240)
-
-    # Servo range of motion in degrees
-    pan_range = (10,170) # 0 is left, 180 is right
-    tilt_range = (0,60) # 0 is up, 60 is down
-
-    with Manager() as manager:
-        # (x,y) of the object center
-        obj_x = manager.Value("i", 0)
-        obj_y = manager.Value("i", 0)
-
-        # servo angles
-        pan_angle = manager.Value("i", 0)
-        tilt_angle = manager.Value("i", 0)
-
-        # Error bounds for "dead zone"
-        pan_error_bound = manager.Value("i", 40)
-        tilt_error_bound = manager.Value("i", 40)
-
-        # PID constants
-        pan_p = manager.Value("f", 0.105)
-        pan_i = manager.Value("f", 0.095)
-        pan_d = manager.Value("f", 0.004)
-
-        tilt_p = manager.Value("f", 0.095)
-        tilt_i = manager.Value("f", 0.083)
-        tilt_d = manager.Value("f", 0.004)
-
-        process_detection = Process(target=image_processing, args=(frame_center, obj_x, obj_y))
-        process_panning = Process(target=controls, args=(pan_angle, pan_range, pan_p, pan_i , pan_d, obj_x, frame_center[0], pan_error_bound))
-        process_tilting = Process(target=controls, args=(tilt_angle, tilt_range, tilt_p, tilt_i, tilt_d, obj_y, frame_center[1], tilt_error_bound))
-        process_set_servo = Process(target=set_servo, args=(pan_angle, tilt_angle))
-
-        process_detection.start()
-        #let camera warm up before starting PID
-        time.sleep(3)
-
-        process_panning.start()
-        process_tilting.start()
-        process_set_servo.start()
-
-        process_detection.join()
-        process_panning.join()
-        process_tilting.join()
-        process_set_servo.join()
-
-        camera.close()
+    # Cleaning up
+    camera.close()
+    cv2.destroyAllWindows()
+    hat.deinit()
+    print("exiting...")

@@ -14,11 +14,8 @@ class Detection():
         self.prev_time = self.curr_time
         self.prev_center = (320,240)
 
-    def update(self, frame, frame_center):
+    def update(self, image, frame_center):
         self.curr_time = time.time()
-
-        # read image
-        image = frame.array
 
         blur = cv2.GaussianBlur(image.copy(), (11,11), 0)
         hsv = cv2.cvtColor(blur, cv2.COLOR_BGR2HSV)
