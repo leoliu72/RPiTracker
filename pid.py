@@ -3,7 +3,7 @@ from collections import deque
 import numpy as np
 
 class PID():
-    def __init__(self, servo_range, kp=0.25, ki=0, kd=0):
+    def __init__(self, servo_range, kp, ki, kd):
         self.servo_range = servo_range
         self.kp = kp
         self.ki = ki
@@ -16,13 +16,12 @@ class PID():
         # initialize current and previous time
         self.curr_time = time.time()
         self.prev_time = self.curr_time
-        self.prev_servo_angle = 0
 
         # initialize PID summation terms
         self.prev_error = 0
-        self.error = 0
         self.error_int = 0
-        self.error_der = 0
+        self.prev_servo_angle = 0
+
 
     def normalize_servo_angle(self, servo_angle):
         # Defines servo angle upper and lower bound ranges
@@ -54,20 +53,15 @@ class PID():
         return servo_angle
 
     # Updates the PID loop
-    def update(self, error, error_bound, sleep = 0.2):
-        # time.sleep(sleep)
-
+    def update(self, error, error_bound):
         self.curr_time = time.time()
         dt = self.curr_time - self.prev_time
-
-        # Proportional
-        self.error = error
 
         # Integral. Implement antiwindup later
         self.error_int += error * dt
 
         # Derivative
-        self.error_der = (error - self.prev_error) / dt
+        error_der = (error - self.prev_error) / dt
 
         # Calculate PID values and servo angle
         if abs(np.mean(self.error_array)) <= error_bound:
@@ -75,19 +69,17 @@ class PID():
             servo_angle = self.prev_servo_angle
         else:
             # Otherwise, do PID
-            p = self.kp * self.error
+            p = self.kp * error
             i = self.ki * self.error_int
-            d = self.kd * self.error_der
+            d = self.kd * error_der
             servo_angle = p + i + d
             servo_angle = self.normalize_servo_angle(servo_angle)
             servo_angle = self.speed_limit(servo_angle)
-            # print('P: ', p, 'I: ', i, ' D: ', d)
 
          # Set prev terms for next loop
-        # print("servo angle: ", servo_angle)
         self.prev_servo_angle = servo_angle
-        self.error_array.append(self.error)
-        self.prev_error = self.error
+        self.error_array.append(error)
+        self.prev_error = error
         self.prev_time = self.curr_time
 
         return servo_angle

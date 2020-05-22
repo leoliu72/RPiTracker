@@ -1,23 +1,14 @@
 from picamera.array import PiRGBArray
 from picamera import PiCamera
-from multiprocessing import Manager
-from multiprocessing import Process
 from detection import Detection
 from pid import PID
-import time
 import cv2
-import sys
-import signal
+import time
 from adafruit_servokit import ServoKit
 kit = ServoKit(channels=16)
 from board import SCL, SDA
 import busio
 from adafruit_pca9685 import PCA9685
-
-# Initialize I2C bus
-i2c = busio.I2C(SCL, SDA)
-hat = PCA9685(i2c)
-hat.frequency = 50
 
 def controls(pid_object, obj_center, frame_center, error_bound):
 
@@ -33,7 +24,7 @@ if __name__ == "__main__":
     # Servo range of motion in degrees
     pan_range = (10,170) # 0 is left, 180 is right
     tilt_range = (0,60) # 0 is up, 60 is down
-    error_bound = (40,40)
+    error_bound = (40,40) #
 
     # Initialize camera object
     camera = PiCamera()
@@ -53,6 +44,11 @@ if __name__ == "__main__":
     pid_tilt = PID(tilt_range, 0.17, 0.12 , 0.004)
     pid_tilt.initialize()
 
+    # Initialize I2C bus
+    i2c = busio.I2C(SCL, SDA)
+    hat = PCA9685(i2c)
+    hat.frequency = 50
+
     # Define servo objects
     pan = kit.servo[0]
     pan.angle = 90
@@ -60,19 +56,10 @@ if __name__ == "__main__":
     tilt.angle = 0
 
     for frame in camera.capture_continuous(raw_capture, format="bgr", use_video_port=True):
-        curr_time = time.time()
-
-        # print(len(frame))
         # perform ball detection
         image = frame.array
         image, obj_center = detection.update(image, frame_center)
         (obj_x, obj_y) = obj_center
-
-        # CV results
-        if obj_center is not None:
-            cv2.circle(image, obj_center, 2, (0,0,255), 3) # center dot
-            cv2.rectangle(image, (frame_center[0]-error_bound[0], frame_center[1]-error_bound[1]),
-            (frame_center[0]+error_bound[0], frame_center[1]+error_bound[1]), (255,0,0),1)
         cv2.imshow('Detected Ball', image)
 
         # PID
@@ -81,15 +68,12 @@ if __name__ == "__main__":
 
         # Set servos
         pan.angle = pan_angle
-#         print("pan angle: ", pan_angle)
         tilt.angle = tilt_angle
-        # print("tilt angle: ", tilt_angle)
 
         key = cv2.waitKey(1) & 0xFF
         raw_capture.truncate(0)
         if key == 27:
             break
-        # print("loop time: ", time.time() - curr_time)
 
     # Cleaning up
     camera.close()
